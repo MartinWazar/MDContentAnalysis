@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="MDContentAnalysis",
-    version="1.0.2",
+    version="1.0.3",
     author="Martin Wazar Eriksen",
     author_email="martin.wazar+GitHub@gmail.com",
     description="Package for analysing content of protein channels/tunnel in molecular dynamics simulations. Analyses trajectories. Built upon MDAnalysis, and uses Hole 2.0 or Mole 2.5",
