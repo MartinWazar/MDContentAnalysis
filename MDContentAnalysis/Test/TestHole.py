@@ -1,4 +1,3 @@
-# %%
 from MDAnalysis import Universe
 from MDContentAnalysis import MDContentAnalysis as MDCA
 
@@ -33,7 +32,6 @@ waterDistrebution  = analysis.atomPDF(waterIds)
 
 #Ploting the water density distribution along the tunnel
 from matplotlib import pyplot as plt
-import numpy as np
 fig = plt.figure(layout="constrained")
 gs = plt.GridSpec(1, 1, figure=fig)
 ax1 = fig.add_subplot(gs[0, 0])
@@ -47,6 +45,3 @@ ax1.grid()
 
 fig.suptitle('Water Distribution Along Tunnel', fontsize=20)
 plt.show()
-
-
-# %%
