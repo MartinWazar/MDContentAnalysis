@@ -1,5 +1,7 @@
 # %%
 from MDAnalysis import Universe, Writer, Merge
+from MDAnalysis.analysis import hole2
+from MDContentAnalysis import xmlMOLE
 import numpy as np
 import math
 import os
@@ -15,10 +17,10 @@ def residueMeanPos(protein, residueList:list, usechain:bool = True) -> list:
     for resseq in residueList:
         if usechain:
             selection = f"chainID {resseq[0]} and resid {resseq[1]}"
-            sumResidueCoord += protein.select_atoms(selection).center_of_geometry()
+            sumResidueCoord += protein.select_atoms(selection).center_of_mass()
         else:
             selection = f"resid {resseq}"
-            sumResidueCoord += protein.select_atoms(selection).center_of_geometry()
+            sumResidueCoord += protein.select_atoms(selection).center_of_mass()
 
     meanResidueCoord = sumResidueCoord/len(residueList)
     return meanResidueCoord
@@ -104,7 +106,10 @@ class TunnelAnalysis:
             centerPointStr = ' '.join(map(str, centerPoint))
             radius = np.linalg.norm(centerPoint-startpos)
             tunnelStructure = tunnelStructure.select_atoms(f"point {centerPointStr} {radius}")
-        tunnelStructure.atoms.write(tunnelPath)
+        if len(tunnelStructure) != 0:
+            tunnelStructure.atoms.write(tunnelPath)
+        else:
+            print('Warning no cavity was found!')
         tunnelIdList = tunnelStructure.ix
         return tunnelIdList, tunnelStructure
 
@@ -205,13 +210,11 @@ class TunnelAnalysis:
         #HOLE2.0 Preperation
         elif hole2Filepath!=None:
             print('Using HOLE2.0')
-            from MDAnalysis.analysis import hole2
             fakeName = 'SPH'
 
         #MOLE2.5 Preperation
         elif mole2Filepath!=None:
             print('Using MOLE2.5')
-            from MDContentAnalysis import xmlMOLE
             WorkingDirectory = f"{saveFolderPath}/MOLE2_output"
             if not os.path.exists(WorkingDirectory):
                 os.makedirs(WorkingDirectory)
@@ -249,8 +252,11 @@ class TunnelAnalysis:
                 
                 if os.path.exists(pathDir):
                     os.replace(pathDir,tunnelDir)
+                    self.rawTunnelList[index] = Universe(tunnelDir)
+                else:
+                    self.rawTunnelList[index] = Universe.empty(0)
+                    print('Warning no cavity was found!')
                 
-                self.rawTunnelList[index] = Universe(tunnelDir)
                 self.tunnelList[index] = self.rawTunnelList[index].atoms
                 self.tunnelIdList[index] = self.tunnelList[index].ix
 
@@ -313,7 +319,9 @@ class TunnelAnalysis:
                 index = int((i-startFrame)/interval)
 
                 tunnel = self.tunnelList[index]
-                if len(tunnel) == maxSPH:
+                if len(tunnel) == 0:
+                    pdb.write(tempU)
+                elif len(tunnel) == maxSPH:
                     pdb.write(tunnel)
                 else:
                     test2 = Merge(tunnel, tempU.atoms[len(tunnel)-1:-1])
@@ -403,7 +411,7 @@ class TunnelAnalysis:
                         moleculeName:str='water',
                         saveTempfiles:bool=False):
         """
-        Finds the moleclules which atleast one atom overlabing with the tunnel spheres.
+        Finds the moleclules which at least one atom overlabing with the tunnel spheres.
 
         Returns the a list with the id's of the atoms in the molecules that overlab with 
         the tunnel. It also returns the number of molecules that overlab with the tunnel.
@@ -565,7 +573,7 @@ class TunnelAnalysis:
 
         return self.contentIdLists[moleculeName], self.contentNums[moleculeName]
 
-    def atomPDF(self,
+    def atomDistribution(self,
                 IdList:list):
         """
         Projects the position of atoms onto the general directions of the protein tunnel.
@@ -656,12 +664,12 @@ if __name__ == '__main__':
     #Analysing water content inside the tunnel
     waterU = Uni.select_atoms('resname SOL')
     waterIds, waterNum = analysis.contentAnalysis(waterU, ['OW', 'HW1', 'HW2'], 'water', False)
-    waterDistrebution  = analysis.atomPDF(waterIds)
+    waterDistribution  = analysis.atomDistribution(waterIds)
 
     #Analysing the potassium content inside the tunnel
     potassiumU = Uni.select_atoms('resname POT')
     KIds, KNum = analysis.contentAnalysis(potassiumU, ['POT'], 'potassiumT', False)
-    potasiumDistrebution  = analysis.atomPDF(KIds)
+    potasiumDistribution  = analysis.atomDistribution(KIds)
 
     #Ploting number of watermolecules inside the tunnel along the trajectory
     from matplotlib import pyplot as plt
@@ -684,7 +692,7 @@ if __name__ == '__main__':
     gs = plt.GridSpec(1, 1, figure=fig)
     ax1 = fig.add_subplot(gs[0, 0])
 
-    ax1.hist(waterDistrebution, range=(-10,50), bins=500, density=True)
+    ax1.hist(waterDistribution, range=(-10,50), bins=500, density=True)
     ax1.set_xlabel('Length along tunnel direction [Å]', fontsize=16)
     ax1.set_ylabel('PDF', fontsize=16)
     ax1.tick_params(axis='both', which='major', labelsize=12)
@@ -695,7 +703,7 @@ if __name__ == '__main__':
     plt.show()
 
     #The analysis oblect can 
-    import pydataman as pd
-    pd.save(f"analysisXTC", analysis)
+    #import pydataman as pd
+    #pd.save(f"analysisXTC", analysis)
 
 

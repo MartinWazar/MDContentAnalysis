@@ -25,7 +25,7 @@ tunnels, tunnelFilters = analysis.tunnelAnalysis(protein=protein,
 #Analysing water content inside the tunnel
 waterU = Uni.select_atoms('resname SOL')
 waterIds, waterNum = analysis.contentAnalysis(waterU, ['OW', 'HW1', 'HW2'], 'water', False)
-waterDistrebution  = analysis.atomPDF(waterIds)
+waterDistrebution  = analysis.atomDistribution(waterIds)
 
 
 
