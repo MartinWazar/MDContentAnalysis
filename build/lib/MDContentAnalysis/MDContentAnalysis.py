@@ -41,7 +41,8 @@ class TunnelAnalysis:
                  startFrame:int=0, 
                  endFrame:int=-1, 
                  interval:int=1, 
-                 saveFolderPath:str=None):
+                 saveFolderPath:str=None,
+                 temp_in_memory:bool=False):
         #Seting up a TunnelAnalysis object
         self.Uni = Uni
 
@@ -76,6 +77,8 @@ class TunnelAnalysis:
         if not os.path.exists(self.tempFolderPath):
             os.mkdir(self.tempFolderPath)
 
+        self.temp_in_memory = temp_in_memory
+
     def filterChannel(self,
                       centerPoint, 
                       startpos, 
@@ -96,7 +99,7 @@ class TunnelAnalysis:
         """
         #Load rawTunnel structure from HOLE2.0 into Universe object
         tunnelPath = f"{self.tempFolderPath}/tunnel{self.frameNum:0{self.frameOrder}d}.pdb"
-        self.rawTunnelList[index] = Universe(tunnelPath) 
+        self.rawTunnelList[index] = Universe(tunnelPath, in_memory=self.temp_in_memory) 
 
         #Filter channel removing spheres outside the protein
         tunnelStructure = self.rawTunnelList[index].select_atoms("not resnum -888")
@@ -225,6 +228,7 @@ class TunnelAnalysis:
 
         #Looping over trajectory
         Uni.trajectory.rewind()
+        print(f'Calculating Tunnels.')
         for ts in Uni.trajectory[startFrame:endFrame:interval]:
             i = ts.frame
             self.frameNum = i
@@ -252,7 +256,7 @@ class TunnelAnalysis:
                 
                 if os.path.exists(pathDir):
                     os.replace(pathDir,tunnelDir)
-                    self.rawTunnelList[index] = Universe(tunnelDir)
+                    self.rawTunnelList[index] = Universe(tunnelDir, in_memory=self.temp_in_memory)
                 else:
                     self.rawTunnelList[index] = Universe.empty(0)
                     print('Warning no cavity was found!')
@@ -292,6 +296,7 @@ class TunnelAnalysis:
                 print(f'Frame: {i}')
                 print(f'Tunnel calculations Done!')
 
+
         #Finding the maximum amount of spheres in the trajectory
         maxSPH = 0
         for i in range(trajLen):
@@ -313,6 +318,7 @@ class TunnelAnalysis:
 
         #Writing a tunnel trajectory file with a constant amount of spheres/atoms for each frame.
         Uni.trajectory.rewind()
+        print('Writing Tunnel Trajectory File.')
         with Writer("TunnelTraj.pdb", multiframe=True) as pdb:
             for ts in Uni.trajectory[startFrame:endFrame:interval]:
                 i = ts.frame
@@ -328,10 +334,11 @@ class TunnelAnalysis:
                     pdb.write(test2.atoms)
 
                 if i != lastframe:
-                    print(f'Frame: {i}')
+                    if index%100 == 0:
+                        print(f'TunnelTraj Frame: {i}')
                 else:
-                    print(f'Frame: {i}')
-                    print('Trajectory File Done!')
+                    print(f'TunnelTraj Frame: {i}')
+                    print('Tunnel Trajectory File Done!')
         os.replace("TunnelTraj.pdb",f"{saveFolderPath}/TunnelTraj.pdb")
 
         return self.rawTunnelList, self.tunnelIdList
@@ -477,10 +484,10 @@ class TunnelAnalysis:
         the number of molecules is not guaranteed to be the same in each frame. 
         {moleculeName}InTunnelTraj.pdb can therfor not be loaded using MDanalysis.
 
-        {moleculeName}TunnelTraj.pdb saved in the same folder on the other hand have the same 
+        {moleculeName}InTunnelTrajProcessed.pdb saved in the same folder on the other hand have the same 
         amount of atoms in each frame. For all the frames all the molecules that 
         overlabe with the tunnel at som point in the trajectory is writing to 
-        {moleculeName}TunnelTraj.pdb. 
+        {moleculeName}InTunnelTrajProcessed.pdb. 
 
         Returns a list of lists with the id's of the atoms in the molecules that 
         overlab with the tunnel. One list of id's for each frame. It also returns a 
@@ -502,6 +509,7 @@ class TunnelAnalysis:
         #Content analysis
         TrackIdfile = []
         Uni.trajectory.rewind()
+        print(f'Finding {moleculeName} in cavity.')
         with Writer(f"{moleculeName}InTunnelTraj.pdb", multiframe=True) as pdb:
             for ts in Uni.trajectory[startFrame:endFrame:interval]:
                 i = ts.frame
@@ -541,10 +549,10 @@ class TunnelAnalysis:
 
                 if i != lastframe:
                     if index%10 == 0:
-                        print(f'Frame: {i}')
+                        print(f'{moleculeName}Traj Frame: {i}')
                 else:
-                    print(f'Frame: {i}')
-                    print('Content analysis Done!')
+                    print(f'{moleculeName}Traj Frame: {i}')
+                    print(f'{moleculeName} Trajectory File Done!')
         os.replace(f"{moleculeName}InTunnelTraj.pdb",f"{saveFolderPath}/{moleculeName}InTunnelTraj.pdb")
 
 
@@ -556,18 +564,19 @@ class TunnelAnalysis:
         if not (totContent < 1):
             SortTrackIdfile = sorted(set(TrackIdfile))
             Uni.trajectory.rewind()
-            with Writer(f"{moleculeName}TunnelTraj.pdb", multiframe=True) as pdb:
+            print(f'Processing {moleculeName}InTunnelTraj File.')
+            with Writer(f"{moleculeName}InTunnelTrajProcessed.pdb", multiframe=True) as pdb:
                 for ts in Uni.trajectory[startFrame:endFrame:interval]:
                     i = ts.frame
                     index = int((i-startFrame)/interval)
                     pdb.write(Uni.atoms[SortTrackIdfile])
                     if i != lastframe:
                         if index%100 == 0:
-                            print(f'Frame: {i}')
+                            print(f'Process {moleculeName}Traj Frame Frame: {i}')
                     else:
-                        print(f'Frame: {i}')
-                        print('Trajectory File Done!')
-            os.replace(f"{moleculeName}TunnelTraj.pdb",f"{saveFolderPath}/{moleculeName}TunnelTraj.pdb")
+                        print(f'Process {moleculeName}Traj Frame: {i}')
+                        print(f'Processed {moleculeName} Trajectory File Done!')
+            os.replace(f"{moleculeName}InTunnelTrajProcessed.pdb",f"{saveFolderPath}/{moleculeName}InTunnelTrajProcessed.pdb")
         else:
             print('No content in channel at any time')
 
@@ -600,6 +609,7 @@ class TunnelAnalysis:
 
         atomNum = 0
         atomCount = 0
+        print('Beginning Atom Distribution Calculation.')
         for ts in Uni.trajectory[startFrame:endFrame:interval]:
             i = ts.frame
             index = int((i-startFrame)/interval)
@@ -614,10 +624,10 @@ class TunnelAnalysis:
 
             if i != lastframe:
                 if index%100 == 0:
-                    print(f'Frame: {i}')
+                    print(f'Distribution Frame: {i}')
             else:
-                print(f'Frame: {i}')
-                print('Atom Coordinate Transformations Calculated!')
+                print(f'Distribution Frame: {i}')
+                print('Atom Distribution Calculated!')
         return atomDensList
 
 

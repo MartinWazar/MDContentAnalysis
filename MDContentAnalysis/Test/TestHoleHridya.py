@@ -26,7 +26,44 @@ tunnels, tunnelFilters = analysis.tunnelAnalysis(protein=protein,
 #Analysing water content inside the tunnel
 waterU = Uni.select_atoms('resname SOL')
 waterIds, waterNum = analysis.contentAnalysis(waterU, ['OW', 'HW1', 'HW2'], 'water', False)
-waterDistrebution  = analysis.atomDistribution(waterIds)
+
+waterOxygenIds = []
+for ids in waterIds:
+    waterOxygenIds.append(Uni.atoms[ids].select_atoms('name OW').ix) #Get only the oxygen's ids
+
+waterOxygenDistribution  = analysis.atomDistribution(waterOxygenIds)
+
+
+
+#Writing .txt files
+import numpy as np
+with open(f'waterNumPrFrame.txt','w+') as f:
+    for i,j in zip(range(analysis.trajLen),analysis.contentNums['water']):
+        f.write(f'{i}, {j}\n')
+f.close()
+
+with open(f'waterOxygenDistribution.txt','w+') as f:
+    for i in waterOxygenDistribution:
+        f.write(f'{i}\n')
+f.close()
+
+hist, bin_edges = np.histogram(waterOxygenDistribution, bins=500, range=[-10,50])
+with open(f'waterOxygenHistogram.txt','w+') as f:
+    for i, j in zip(bin_edges[0:-1],hist/analysis.trajLen):
+        f.write(f'{i}, {j}\n')
+f.close()
+
+#How to read text files
+histR = []
+bin_edgesR = []
+with open('waterOxygenHistogram.txt','r') as f:
+    lines=f.read()
+    listli=lines.split('\n')
+    for i in listli[0:-1]:
+        j,k = i.split(',')
+        bin_edgesR.append(float(j))
+        histR.append(float(k))
+f.close()
 
 
 
@@ -36,7 +73,7 @@ fig = plt.figure(layout="constrained")
 gs = plt.GridSpec(1, 1, figure=fig)
 ax1 = fig.add_subplot(gs[0, 0])
 
-ax1.hist(waterDistrebution, range=(-10,50), bins=500, density=True)
+ax1.hist(waterOxygenDistribution, range=(-10,50), bins=500, density=True)
 ax1.set_xlabel('Length along tunnel direction [Å]', fontsize=16)
 ax1.set_ylabel('PDF', fontsize=16)
 ax1.tick_params(axis='both', which='major', labelsize=12)
